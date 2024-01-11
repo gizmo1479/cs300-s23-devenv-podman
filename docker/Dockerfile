@@ -87,20 +87,17 @@ ENV LANG en_US.UTF-8
 # remove unneeded .deb files
 RUN rm -r /var/lib/apt/lists/*
 
+# user's CS login as a --build-arg
+ARG USER
+
 # set up passwordless sudo for user cs300-user
-RUN useradd -m -s /bin/bash cs300-user && \
-  echo "cs300-user ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/cs300-init
+RUN echo "$USER ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/cs300-init
 
 # create binary reporting version of dockerfile
 RUN (echo '#\!/bin/sh'; echo 'echo 1') > /usr/bin/cs300-docker-version; chmod ugo+rx,u+w,go-w /usr/bin/cs300-docker-version
 
 # git build arguments
-ARG USER=cs300\ User
 ARG EMAIL=nobody@example.com
-
-# configure your environment
-USER cs300-user
-RUN rm -f ~/.bash_logout
 
 WORKDIR /home/cs300-user
 CMD ["/bin/bash", "-l"]

@@ -1,8 +1,7 @@
 # CS 300: development environment
 
-This repo contains a minimal dev environment setup for CS 300. In
-particular, it provides the scripts to create the course Docker
-container.
+**TODO** - needs updated info
+
 
 ## Getting started
 

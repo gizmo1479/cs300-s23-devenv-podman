@@ -37,3 +37,7 @@ cd podman
 cd ..
 ./cs300-run-podman
 ```
+
+## Potential Issues
+
+I had one issue when trying to initially build - podman told me to try executing `podman system migrate` which fixed the issue so users may need to do this on department machines when using podman for the first time

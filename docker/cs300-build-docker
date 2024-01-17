@@ -36,8 +36,17 @@ elif test -z "$tag"; then
     tag=cs300:latest
 fi
 
+container_exec=docker
+container_file=Dockerfile
+if command -v 'podman' &> /dev/null; then
+	echo "podman found - using to build container"
+	container_exec=podman
+	container_file=Podmanfile
+	podman system migrate
+fi
+
 if test $platform = linux/arm64; then
-    exec podman build -t "$tag" -f Dockerfile.arm64 --platform linux/arm64 --build-arg USER=$USER .
+    exec $container_exec build -t "$tag" -f $container_file.arm64 --platform linux/arm64 --build-arg USER=$USER .
 else
-    exec podman build -t "$tag" -f Dockerfile --platform linux/amd64 --build-arg USER=$USER .
+    exec $container_exec build -t "$tag" -f $container_file --platform linux/amd64 --build-arg USER=$USER .
 fi

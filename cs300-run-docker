@@ -22,7 +22,7 @@ while test "$#" -ne 0; do
             platform=linux/arm64
             shift
         else
-            echo "\`cs300-run-podman --arm\` only works on ARM64 hosts" 1>&2
+            echo "\`cs300-run-docker --arm\` only works on ARM64 hosts" 1>&2
             exit 1
         fi
     elif test "$1" = "-x" -o "$1" = "--x86-64" -o "$1" = "--x86_64" -o "$1" = "--amd64"; then
@@ -32,7 +32,7 @@ while test "$#" -ne 0; do
         if test "$arch" = "arm64" -o "$arch" = "aarch64"; then
             armtext=" [-a|--arm] [-x|--x86-64]"
         fi
-        echo "Usage: cs300-run-podman [-C|--clean]$armtext [-V|--verbose]" 1>&2
+        echo "Usage: cs300-run-docker [-C|--clean]$armtext [-V|--verbose]" 1>&2
         exit 1
     fi
 done
@@ -55,36 +55,44 @@ vexec () {
     exec "$@"
 }
 
+container_exec=docker
+container_rflags=
+if command -v podman &> /dev/null; then
+	echo "podman found - using instead of docker"
+	container_exec='podman'
+	container_rflags='--userns=keep-id'
+fi
+
 has_network() {
-    podman network ls | grep $network_name >/dev/null
+    $container_exec network ls | grep $network_name >/dev/null
 }
 
 has_container() {
-    [ $( podman ps -a | grep $container_name | wc -l ) -gt 0 ]
+    [ $( $container_exec ps -a | grep $container_name | wc -l ) -gt 0 ]
 }
 
 create_network() {
     echo "cs300 network not found, creating one..."
-    podman network create -d bridge cs300-network
+    $container_exec network create -d bridge cs300-network
 }
 
 remove_containers() {
     echo "Removing all existing cs300 containers..."
-    podman ps -a -f name=cs300 --format "{{.ID}}" | while read line ; do podman rm --force $line ; done
+    $container_exec ps -a -f name=cs300 --format "{{.ID}}" | while read line ; do podman rm --force $line ; done
 }
 
 start_container() {
     echo "Entering container..."
-    podman start $container_name
-    podman exec -it $container_name /bin/bash
+    $container_exec start $container_name
+    $container_exec exec -it $container_name /bin/bash
 }
 
 start_new_container() {
     echo "Starting a new container..."
-    vexec podman run -it \
+    vexec $container_exec run -it \
         --name $container_name \
         --platform $platform \
-        --privileged --userns=keep-id \
+        --privileged $container_rflags \
         --cap-add=SYS_PTRACE --cap-add=NET_ADMIN --security-opt seccomp=unconfined \
         -v "$maindir/home":/home/$USER \
         -w "/home/$USER" \
@@ -103,7 +111,7 @@ myfileid=`stat $statformatarg %d:%i "${BASH_SOURCE[0]}" 2>/dev/null`
 dir="`pwd`"
 subdir=""
 while test "$dir" != / -a "$dir" != ""; do
-    thisfileid=`stat $statformatarg %d:%i "$dir"/cs300-run-podman 2>/dev/null`
+    thisfileid=`stat $statformatarg %d:%i "$dir"/cs300-run-docker 2>/dev/null`
     if test -n "$thisfileid" -a "$thisfileid" = "$myfileid"; then
         maindir="$dir"
         break
@@ -125,15 +133,15 @@ if test -n "$SSH_AUTH_SOCK" -a "`uname`" = Darwin; then
 fi
 
 if test -n "$maindir"; then
-    existing_image="`podman ps -f status=running -f ancestor=$tag -f volume=/host_mnt"$maindir" --no-trunc --format "{{.CreatedAt}},{{.ID}}" | sort -r | head -n 1`"
+    existing_image="`$container_exec ps -f status=running -f ancestor=$tag -f volume=/host_mnt"$maindir" --no-trunc --format "{{.CreatedAt}},{{.ID}}" | sort -r | head -n 1`"
     if test -n "$existing_image"; then
         created_at="`echo $existing_image | sed 's/,.*//'`"
         image="`echo $existing_image | sed 's/^.*,//'`"
         image12="`echo $image | head -c 12`"
         echo "* Using running container $image12, created $created_at" 1>&2
-        echo "- To start a new container, exit then \`cs300-run-podman -f\`" 1>&2
-        echo "- To kill this container, exit then \`podman kill $image12\`" 1>&2
-        vexec podman exec -it$sshenvarg $image /bin/bash
+        echo "- To start a new container, exit then \`cs300-run-docker -f\`" 1>&2
+        echo "- To kill this container, exit then \`$container_exec kill $image12\`" 1>&2
+        vexec $container_exec exec -it$sshenvarg $image /bin/bash
     fi
 fi
 
